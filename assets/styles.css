@@ -327,3 +327,9 @@ kbd {
   .area-row .body { display: block !important; }
   .dist, .chip, .legend i { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* ---------- sign-in fields ---------- */
+.field.wide { grid-column: 1 / -1; }
+.field .req { color: var(--pink); }
+.field input[aria-invalid="true"] { border-color: #FF9AAE; }
+.privacy strong { color: var(--night-text); font-weight: 600; }

@@ -77,7 +77,7 @@
   }
   function fresh() {
     return {
-      v: 1, sessionId: uuid(), mode: MODE, name: "", email: "",
+      v: 1, sessionId: uuid(), mode: MODE, name: "", email: "", company: "",
       startedAt: null, completedAt: null, at: "welcome",
       r: {}, suggested: null, mixed: false, confirmed: MODE === "ceo" ? CEO_LEVEL : null, override: false,
       below: {}, answers: {}, rev: 0, synced: 0
@@ -235,7 +235,7 @@
       ? "This edition is prepared for the leader of the enterprise. It helps you see how fully you — and your executive team — are leading at the level the enterprise requires."
       : "Every level of leadership asks something different of you. This assessment first identifies the level your role is designed to lead at, then helps you see how fully you are leading there.";
     var resumeBlock = "";
-    if (resumed && S.name && !S.completedAt) {
+    if (resumed && S.name && S.company && !S.completedAt) {
       resumeBlock =
         '<hr class="rule"><p class="lede" style="margin-top:0">Welcome back, ' + esc(firstName()) + ". Your answers have been kept.</p>" +
         '<div class="actions"><button class="btn" data-act="resume" data-autofocus>Continue where you left off ' + arrow() + "</button>" +
@@ -249,10 +249,11 @@
       (resumeBlock ||
         '<form id="who" novalidate>' +
         '<div class="fields">' +
-        '<div class="field"><label for="nm">Full name</label><input id="nm" name="name" autocomplete="name" placeholder="Your name" value="' + esc(S.name) + '" data-autofocus><div class="err" id="nmErr"></div></div>' +
-        '<div class="field"><label for="em">Email</label><input id="em" name="email" type="email" inputmode="email" autocomplete="email" placeholder="you@company.com" value="' + esc(S.email) + '"><div class="err" id="emErr"></div></div>' +
+        '<div class="field"><label for="nm">Full name <span class="req" aria-hidden="true">*</span></label><input id="nm" name="name" autocomplete="name" placeholder="Your name" required aria-required="true" aria-describedby="nmErr" value="' + esc(S.name) + '" data-autofocus><div class="err" id="nmErr" role="alert"></div></div>' +
+        '<div class="field"><label for="co">Company <span class="req" aria-hidden="true">*</span></label><input id="co" name="organization" autocomplete="organization" placeholder="Your company" required aria-required="true" aria-describedby="coErr" value="' + esc(S.company) + '"><div class="err" id="coErr" role="alert"></div></div>' +
+        '<div class="field wide"><label for="em">Work email <span class="req" aria-hidden="true">*</span></label><input id="em" name="email" type="email" inputmode="email" autocomplete="email" placeholder="you@company.com" required aria-required="true" aria-describedby="emErr" value="' + esc(S.email) + '"><div class="err" id="emErr" role="alert"></div></div>' +
         "</div>" +
-        '<p class="small privacy">Your responses are confidential and are seen only by you and the System &amp; Soul team. Your progress saves as you go, and you will see your results as soon as you finish.</p>' +
+        '<p class="small privacy"><strong>Your privacy.</strong> All fields are required. Your information will never be shared publicly. Your individual answers are seen only by you and the System &amp; Soul team. Results may be shared in aggregate with your company’s leaders, never as individual responses.</p>' +
         '<div class="actions"><button class="btn" type="submit">Begin ' + arrow() + "</button></div>" +
         "</form>")
     );
@@ -536,13 +537,22 @@
     if (advancing || S.at !== "welcome") return;
     var nm = document.getElementById("nm").value.trim();
     var em = document.getElementById("em").value.trim();
-    var ok = true;
-    document.getElementById("nmErr").textContent = "";
-    document.getElementById("emErr").textContent = "";
-    if (nm.length < 2) { document.getElementById("nmErr").textContent = "Please enter your name."; ok = false; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) { document.getElementById("emErr").textContent = "Please enter a valid email address."; ok = false; }
-    if (!ok) return;
-    S.name = nm; S.email = em;
+    var co = document.getElementById("co").value.trim();
+    var firstBad = null;
+    var fail = function (id, msg) {
+      document.getElementById(id + "Err").textContent = msg;
+      document.getElementById(id).setAttribute("aria-invalid", "true");
+      if (!firstBad) firstBad = document.getElementById(id);
+    };
+    ["nm", "co", "em"].forEach(function (id) {
+      document.getElementById(id + "Err").textContent = "";
+      document.getElementById(id).removeAttribute("aria-invalid");
+    });
+    if (nm.length < 2) fail("nm", "Please enter your name.");
+    if (co.length < 2) fail("co", "Please enter your company.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) fail("em", "Please enter a valid email address.");
+    if (firstBad) { firstBad.focus(); return; }
+    S.name = nm; S.email = em; S.company = co;
     if (!S.startedAt) S.startedAt = now();
     touch();
     saveNow("start");
@@ -710,7 +720,7 @@
     var L = lv(), B = L ? belowLevelOf(L.level) : null;
     var items = [], cnt = { C: { "+": 0, "/": 0, "−": 0 }, B: { "+": 0, "/": 0, "−": 0 } };
     var belowCnt = { Often: 0, Sometimes: 0, Rarely: 0 };
-    var base = { session_id: S.sessionId, name: S.name, email: S.email, link_type: MODE, assessed_level: L ? L.level : "", level_name: L ? L.name : "" };
+    var base = { session_id: S.sessionId, name: S.name, company: S.company || "", email: S.email, link_type: MODE, assessed_level: L ? L.level : "", level_name: L ? L.name : "" };
     var meaning = {}; RATE_OPTS.forEach(function (o) { meaning[o.v] = o.meaning; });
     if (B) {
       B.responsibilities.forEach(function (r) {
@@ -739,7 +749,7 @@
       session_id: S.sessionId,
       status: S.completedAt ? "complete" : "in progress",
       link_type: MODE,
-      name: S.name, email: S.email,
+      name: S.name, company: S.company || "", email: S.email,
       started_at: S.startedAt || "", last_saved_at: now(), completed_at: S.completedAt || "", minutes_to_complete: mins,
       suggested_level: MODE === "ceo" ? "" : (S.suggested || ""),
       confirmed_level: S.confirmed || "",
